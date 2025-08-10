@@ -1,0 +1,106 @@
+---
+- name: Stop PostgreSQL service
+  ansible.builtin.service:
+    name: postgresql
+    state: stopped
+
+- name: Clear existing data directory
+  ansible.builtin.file:
+    path: '{{ postgresql_data_dir }}'
+    state: absent
+  become_user: postgres
+
+- name: Run pg_basebackup to copy master data
+  ansible.builtin.command:
+    cmd: pg_basebackup -h {{ master_host }} -U {{ replication_user }} -D {{ postgresql_data_dir }} -P --wal-method=stream
+    creates: '{{ postgresql_data_dir }}/PG_VERSION'
+  become_user: '{{ replication_password }}'
+  environment:
+    PGPASSWORD: '{{ replication_password }}'
+
+- name: Configure postgresql.conf for slave
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
+    regexp: '{{ item.regexp }}'
+    line: '{{ item.line }}'
+    state: present
+    backup: yes
+  loop:
+    - { regexp: '^#?shared_buffers\s*=', line: 'shared_buffers = 128MB' }
+    - { regexp: '^#?work_mem\s*=', line: 'work_mem = 4MB' }
+    - {
+        regexp: '^#?maintenance_work_mem\s*=',
+        line: 'maintenance_work_mem = 32MB',
+      }
+    - {
+        regexp: '^#?effective_cache_size\s*=',
+        line: 'effective_cache_size = 384MB',
+      }
+    # Replication Settings
+    - {
+        regexp: '^#?primary_conninfo\s*=',
+        line: "primary_conninfo = 'host={{ master_host }} port=5432 user={{ replication_user }} password={{ replication_password }}'",
+      }
+    - { regexp: '^#?hot_standby\s*=', line: 'hot_standby = on' } # Enable read-only queries
+    # Checkpoint and WAL Settings (same as master)
+    - { regexp: '^#?wal_level\s*=', line: 'wal_level = replica' }
+    - { regexp: '^#?max_wal_size\s*=', line: 'max_wal_size = 256MB' }
+    - { regexp: '^#?min_wal_size\s*=', line: 'min_wal_size = 80MB' }
+    - {
+        regexp: '^#?checkpoint_timeout\s*=',
+        line: 'checkpoint_timeout = 10min',
+      }
+    - {
+        regexp: '^#?checkpoint_completion_target\s*=',
+        line: 'checkpoint_completion_target = 0.9',
+      }
+    - { regexp: '^#?wal_compression\s*=', line: 'wal_compression = on' }
+    - { regexp: '^#?wal_writer_delay\s*=', line: 'wal_writer_delay = 200ms' }
+    # CPU and Concurrency
+    - {
+        regexp: '^#?max_parallel_workers\s*=',
+        line: 'max_parallel_workers = 0',
+      }
+    - {
+        regexp: '^#?max_parallel_workers_per_gather\s*=',
+        line: 'max_parallel_workers_per_gather = 0',
+      }
+    - { regexp: '^#?max_connections\s*=', line: 'max_connections = 20' }
+    # Write and I/O Optimization
+    - { regexp: '^#?synchronous_commit\s*=', line: 'synchronous_commit = on' }
+    - { regexp: '^#?random_page_cost\s*=', line: 'random_page_cost = 4.0' }
+    # Background Processes
+    - { regexp: '^#?autovacuum\s*=', line: 'autovacuum = on' }
+    - {
+        regexp: '^#?autovacuum_max_workers\s*=',
+        line: 'autovacuum_max_workers = 1',
+      }
+    - {
+        regexp: '^#?autovacuum_vacuum_cost_limit\s*=',
+        line: 'autovacuum_vacuum_cost_limit = 200',
+      }
+  notify: Restart PostgreSQL
+
+- name: Create standby.signal file
+  ansible.builtin.file:
+    path: '{{ postgresql_data_dir }}/standby.signal'
+    state: touch
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  become_user: postgres
+
+- name: Configure pg_hba.conf for local monitoring (optional)
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf
+    regexp: '^#?local\s+all\s+postgres'
+    line: 'local all postgres peer'
+    state: present
+    backup: yes
+  notify: Restart PostgreSQL
+
+- name: Ensure PostgreSQL service is started and enabled
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: yes

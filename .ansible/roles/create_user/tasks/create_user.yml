@@ -1,0 +1,7 @@
+- name: Create user 'vm'
+  ansible.builtin.user:
+    name: vm
+    password: "{{ user_password | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: yes

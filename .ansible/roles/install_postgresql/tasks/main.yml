@@ -1,0 +1,37 @@
+---
+- name: Install required packages (curl and ca-certificates)
+  ansible.builtin.apt:
+    name:
+      - curl
+      - ca-certificates
+    state: present
+    update_cache: true
+
+- name: Create directory for postgresql GPG key
+  ansible.builtin.file:
+    path: /usr/share/postgresql-common/pgdg
+    state: directory
+    mode: '0755'
+
+- name: Add PostgreSQL repo manually
+  ansible.builtin.shell: |
+    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt {{ ansible_lsb.codename }}-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+  become: true
+  args:
+    creates: /etc/apt/sources.list.d/pgdg.list
+
+- name: Download PostgreSQL GPG key
+  ansible.builtin.get_url:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    dest: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+    mode: '0644'
+
+- name: Install Postgresql
+  ansible.builtin.apt:
+    name: 'postgresql-{{ postgresql_version }}'
+    update_cache: true
+
+- name: Restart Postgresql
+  ansible.builtin.systemd_service:
+    name: postgresql
+    state: restarted

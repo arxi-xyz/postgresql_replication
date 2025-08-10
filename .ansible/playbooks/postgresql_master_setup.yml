@@ -1,0 +1,6 @@
+---
+- hosts: postgresql_master
+  become: yes
+  roles:
+    - install_postgresql
+    - config_master_postgresql

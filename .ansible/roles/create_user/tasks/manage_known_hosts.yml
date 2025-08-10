@@ -1,0 +1,5 @@
+- name: Add VM host keys to known_hosts
+  ansible.builtin.known_hosts:
+    name: '{{ ansible_host }}'
+    key: "{{ lookup('pipe', 'ssh-keyscan -t ed25519 ' + ansible_host) }}"
+    state: present

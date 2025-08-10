@@ -1,0 +1,12 @@
+- name: Ensure user is in sudo group
+  ansible.builtin.user:
+    name: vm
+    groups: sudo
+    append: yes
+- name: Ensure vm user has passwordless sudo
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/vm
+    line: 'vm ALL=(ALL) NOPASSWD: ALL'
+    create: yes
+    mode: '0440'
+    validate: 'visudo -cf %s'

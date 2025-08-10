@@ -1,0 +1,19 @@
+---
+postgresql_version: 17
+
+replication_user: replication_user
+replication_password: 'password'
+
+app_user: 'app_user'
+app_user_password: 'password'
+
+postgres_password: 'password_post'
+
+master_host: '192.168.56.10'
+
+standby_hosts:
+  - '192.168.56.11'
+  - '192.168.56.12'
+  - '192.168.56.13'
+
+database_name: 'replication_db'

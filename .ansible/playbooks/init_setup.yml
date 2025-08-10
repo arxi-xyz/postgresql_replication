@@ -1,0 +1,8 @@
+---
+- hosts: all
+  become: true
+  vars_files:
+    - '../vault/main.yml'
+  roles:
+    - create_user
+    - ssh_setup

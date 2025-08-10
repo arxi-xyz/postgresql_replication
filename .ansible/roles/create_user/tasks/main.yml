@@ -1,0 +1,6 @@
+---
+- name: Create user
+  ansible.builtin.import_tasks: create_user.yml
+
+- name: Configure sudo
+  ansible.builtin.import_tasks: configure_sudo.yml

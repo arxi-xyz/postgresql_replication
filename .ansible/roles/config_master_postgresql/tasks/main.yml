@@ -1,0 +1,140 @@
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Install psycopg2 for PostgreSQL module
+  ansible.builtin.package:
+    name: python3-psycopg2
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Configure postgresql.conf for replication
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
+    regexp: '{{ item.regexp }}'
+    line: '{{ item.line }}'
+    state: present
+    backup: yes
+  loop:
+    # Memory Settings
+    - { regexp: '^#?shared_buffers\s*=', line: 'shared_buffers = 128MB' }
+    - { regexp: '^#?work_mem\s*=', line: 'work_mem = 4MB' }
+    - {
+        regexp: '^#?maintenance_work_mem\s*=',
+        line: 'maintenance_work_mem = 32MB',
+      }
+    - {
+        regexp: '^#?effective_cache_size\s*=',
+        line: 'effective_cache_size = 384MB',
+      }
+    # Checkpoint and WAL Settings
+    - { regexp: '^#?wal_level\s*=', line: 'wal_level = replica' }
+    - { regexp: '^#?max_wal_size\s*=', line: 'max_wal_size = 256MB' }
+    - { regexp: '^#?min_wal_size\s*=', line: 'min_wal_size = 80MB' }
+    - {
+        regexp: '^#?checkpoint_timeout\s*=',
+        line: 'checkpoint_timeout = 10min',
+      }
+    - {
+        regexp: '^#?listen_addresses\s*=',
+        line: "listen_addresses = 'localhost,{{ master_host }}'",
+      }
+    - {
+        regexp: '^#?checkpoint_completion_target\s*=',
+        line: 'checkpoint_completion_target = 0.9',
+      }
+    - { regexp: '^#?wal_compression\s*=', line: 'wal_compression = on' }
+    - { regexp: '^#?wal_writer_delay\s*=', line: 'wal_writer_delay = 200ms' }
+    - { regexp: '^#?max_wal_senders\s*=', line: 'max_wal_senders = 3' }
+    - { regexp: '^#?wal_keep_size\s*=', line: 'wal_keep_size = 64MB' }
+    - {
+        regexp: '^#?hot_standby_feedback\s*=',
+        line: 'hot_standby_feedback = on',
+      }
+    # CPU and Concurrency
+    - {
+        regexp: '^#?max_parallel_workers\s*=',
+        line: 'max_parallel_workers = 0',
+      }
+    - {
+        regexp: '^#?max_parallel_workers_per_gather\s*=',
+        line: 'max_parallel_workers_per_gather = 0',
+      }
+    - { regexp: '^#?max_connections\s*=', line: 'max_connections = 20' }
+    # Write and I/O Optimization
+    - { regexp: '^#?synchronous_commit\s*=', line: 'synchronous_commit = on' }
+    - { regexp: '^#?random_page_cost\s*=', line: 'random_page_cost = 4.0' }
+    # Background Processes
+    - { regexp: '^#?autovacuum\s*=', line: 'autovacuum = on' }
+    - {
+        regexp: '^#?autovacuum_max_workers\s*=',
+        line: 'autovacuum_max_workers = 1',
+      }
+    - {
+        regexp: '^#?autovacuum_vacuum_cost_limit\s*=',
+        line: 'autovacuum_vacuum_cost_limit = 200',
+      }
+
+- name: Deploy pg_hba.conf configuration
+  ansible.builtin.template:
+    src: templates/pg_hba.conf.j2
+    dest: '/etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf'
+    owner: postgres
+    group: postgres
+    mode: '0640'
+    backup: yes
+  notify: restart-postgresql
+
+- name: Install acl package
+  ansible.builtin.package:
+    name: acl
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Restart PostgreSQL
+  ansible.builtin.systemd_service:
+    name: postgresql
+    state: restarted
+
+- name: Ensure replication user exists
+  community.postgresql.postgresql_user:
+    name: '{{ replication_user }}'
+    password: '{{ replication_password }}'
+    role_attr_flags: REPLICATION
+    state: present
+    db: postgres
+    login_user: postgres
+
+- name: Ensure application user exists
+  community.postgresql.postgresql_user:
+    name: '{{ app_user }}'
+    password: '{{ app_user_password }}'
+    state: present
+    db: postgres
+    login_user: postgres
+
+- name: Set app user as owner of public schema
+  community.postgresql.postgresql_owner:
+    db: '{{ database_name }}'
+    obj_name: public
+    obj_type: schema
+    new_owner: '{{ app_user }}'
+    login_user: postgres
+  become: true
+  become_user: postgres
+
+- name: Create database on master
+  community.postgresql.postgresql_db:
+    name: '{{ database_name }}'
+    state: present
+    login_user: postgres
+  notify: restart-postgresql
+
+- name: Validate PostgreSQL configuration
+  ansible.builtin.command:
+    cmd: 'pg_ctlcluster {{ postgresql_version }} main status'
+  changed_when: false
+  register: pg_status
+  failed_when: pg_status.rc != 0
+  become_user: postgres
