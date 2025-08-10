@@ -32,6 +32,7 @@
     - { regexp: '^#?wal_level\s*=', line: 'wal_level = replica' }
     - { regexp: '^#?max_wal_size\s*=', line: 'max_wal_size = 256MB' }
     - { regexp: '^#?min_wal_size\s*=', line: 'min_wal_size = 80MB' }
+    - { regexp: '^#?ssl\s*=', line: 'ssl = off' }
     - {
         regexp: '^#?checkpoint_timeout\s*=',
         line: 'checkpoint_timeout = 10min',
@@ -46,8 +47,8 @@
       }
     - { regexp: '^#?wal_compression\s*=', line: 'wal_compression = on' }
     - { regexp: '^#?wal_writer_delay\s*=', line: 'wal_writer_delay = 200ms' }
-    - { regexp: '^#?max_wal_senders\s*=', line: 'max_wal_senders = 3' }
-    - { regexp: '^#?wal_keep_size\s*=', line: 'wal_keep_size = 64MB' }
+    - { regexp: '^#?max_wal_senders\s*=', line: 'max_wal_senders = 10' }
+    - { regexp: '^#?wal_keep_size\s*=', line: 'wal_keep_size = 256MB' }
     - {
         regexp: '^#?hot_standby_feedback\s*=',
         line: 'hot_standby_feedback = on',
@@ -61,7 +62,7 @@
         regexp: '^#?max_parallel_workers_per_gather\s*=',
         line: 'max_parallel_workers_per_gather = 0',
       }
-    - { regexp: '^#?max_connections\s*=', line: 'max_connections = 20' }
+    - { regexp: '^#?max_connections\s*=', line: 'max_connections = 100' }
     # Write and I/O Optimization
     - { regexp: '^#?synchronous_commit\s*=', line: 'synchronous_commit = on' }
     - { regexp: '^#?random_page_cost\s*=', line: 'random_page_cost = 4.0' }
@@ -84,7 +85,9 @@
     group: postgres
     mode: '0640'
     backup: yes
-  notify: restart-postgresql
+
+- name: restart
+  ansible.builtin.import_tasks: restart_postgresql.yml
 
 - name: Install acl package
   ansible.builtin.package:
@@ -92,10 +95,8 @@
     state: present
   when: ansible_os_family == "Debian"
 
-- name: Restart PostgreSQL
-  ansible.builtin.systemd_service:
-    name: postgresql
-    state: restarted
+- name: restart
+  ansible.builtin.import_tasks: restart_postgresql.yml
 
 - name: Ensure replication user exists
   community.postgresql.postgresql_user:
@@ -106,12 +107,26 @@
     db: postgres
     login_user: postgres
 
+- name: Create replication slots for each standby
+  community.postgresql.postgresql_slot:
+    name: "standby_slot_{{ item | replace('.', '_') | lower }}"
+    slot_type: physical
+    state: present
+    login_user: postgres
+  loop: '{{ standby_hosts }}'
+
 - name: Ensure application user exists
   community.postgresql.postgresql_user:
     name: '{{ app_user }}'
     password: '{{ app_user_password }}'
     state: present
     db: postgres
+    login_user: postgres
+
+- name: Create database on master
+  community.postgresql.postgresql_db:
+    name: '{{ database_name }}'
+    state: present
     login_user: postgres
 
 - name: Set app user as owner of public schema
@@ -124,12 +139,8 @@
   become: true
   become_user: postgres
 
-- name: Create database on master
-  community.postgresql.postgresql_db:
-    name: '{{ database_name }}'
-    state: present
-    login_user: postgres
-  notify: restart-postgresql
+- name: restart
+  ansible.builtin.import_tasks: restart_postgresql.yml
 
 - name: Validate PostgreSQL configuration
   ansible.builtin.command:

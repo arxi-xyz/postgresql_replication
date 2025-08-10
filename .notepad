@@ -1,0 +1,21 @@
+host    postgres   postgres   192.168.56.1/32   md5
+local   postgres   postgres   md5
+local   all        all        peer
+host    {{ database_name }}   {{ app_user }}   192.168.56.1/32   md5
+{% for host in standby_hosts %}
+host    replication   {{ replication_user }}   {{ host }}/32   md5
+{% endfor %}
+
+            postgresql_slave_2:
+              ansible_host: 192.168.56.12
+              ansible_user: vm
+            postgresql_slave_3:
+              ansible_host: 192.168.56.13
+              ansible_user: vm
+
+                          postgresql_slave_3:
+              ansible_host: 192.168.56.13
+              ansible_user: vm
+
+
+              sudo -u postgres psql -d postgres

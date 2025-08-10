@@ -1,6 +1,7 @@
 ---
 - hosts: postgresql_slaves
   become: yes
+  serial: 1
   roles:
     - install_postgresql
     - config_slave_postgresql

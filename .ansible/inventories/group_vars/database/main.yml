@@ -17,3 +17,5 @@ standby_hosts:
   - '192.168.56.13'
 
 database_name: 'replication_db'
+
+postgresql_data_dir: /var/lib/postgresql/17/main

@@ -4,17 +4,31 @@
     name: postgresql
     state: stopped
 
+- name: Install acl package
+  ansible.builtin.package:
+    name: acl
+    state: present
+  when: ansible_os_family == "Debian"
+
 - name: Clear existing data directory
+  become_user: postgres
   ansible.builtin.file:
     path: '{{ postgresql_data_dir }}'
     state: absent
-  become_user: postgres
 
 - name: Run pg_basebackup to copy master data
   ansible.builtin.command:
-    cmd: pg_basebackup -h {{ master_host }} -U {{ replication_user }} -D {{ postgresql_data_dir }} -P --wal-method=stream
+    cmd: >
+      pg_basebackup
+      -h {{ master_host }}
+      -U {{ replication_user }}
+      -D {{ postgresql_data_dir }}
+      -P
+      --wal-method=stream
+      --slot=standby_slot_{{ ansible_host | replace('.', '_') | lower }}
+      --write-recovery-conf
     creates: '{{ postgresql_data_dir }}/PG_VERSION'
-  become_user: '{{ replication_password }}'
+  become_user: postgres
   environment:
     PGPASSWORD: '{{ replication_password }}'
 
@@ -26,6 +40,7 @@
     state: present
     backup: yes
   loop:
+    - { regexp: '^#?ssl\s*=', line: 'ssl = off' }
     - { regexp: '^#?shared_buffers\s*=', line: 'shared_buffers = 128MB' }
     - { regexp: '^#?work_mem\s*=', line: 'work_mem = 4MB' }
     - {
@@ -36,13 +51,15 @@
         regexp: '^#?effective_cache_size\s*=',
         line: 'effective_cache_size = 384MB',
       }
-    # Replication Settings
     - {
         regexp: '^#?primary_conninfo\s*=',
-        line: "primary_conninfo = 'host={{ master_host }} port=5432 user={{ replication_user }} password={{ replication_password }}'",
+        line: "primary_conninfo = 'host={{ master_host }} port=5432 user={{ replication_user }} password={{ replication_password }} application_name={{ inventory_hostname }}'",
+      }
+    - {
+        regexp: '^#?primary_slot_name\s*=',
+        line: "primary_slot_name = 'standby_slot_{{ ansible_host | replace('.', '_') }}'",
       }
     - { regexp: '^#?hot_standby\s*=', line: 'hot_standby = on' } # Enable read-only queries
-    # Checkpoint and WAL Settings (same as master)
     - { regexp: '^#?wal_level\s*=', line: 'wal_level = replica' }
     - { regexp: '^#?max_wal_size\s*=', line: 'max_wal_size = 256MB' }
     - { regexp: '^#?min_wal_size\s*=', line: 'min_wal_size = 80MB' }
@@ -65,7 +82,7 @@
         regexp: '^#?max_parallel_workers_per_gather\s*=',
         line: 'max_parallel_workers_per_gather = 0',
       }
-    - { regexp: '^#?max_connections\s*=', line: 'max_connections = 20' }
+    - { regexp: '^#?max_connections\s*=', line: 'max_connections = 100' }
     # Write and I/O Optimization
     - { regexp: '^#?synchronous_commit\s*=', line: 'synchronous_commit = on' }
     - { regexp: '^#?random_page_cost\s*=', line: 'random_page_cost = 4.0' }
@@ -79,7 +96,9 @@
         regexp: '^#?autovacuum_vacuum_cost_limit\s*=',
         line: 'autovacuum_vacuum_cost_limit = 200',
       }
-  notify: Restart PostgreSQL
+
+- name: restart
+  ansible.builtin.import_tasks: restart_postgresql.yml
 
 - name: Create standby.signal file
   ansible.builtin.file:
@@ -97,7 +116,9 @@
     line: 'local all postgres peer'
     state: present
     backup: yes
-  notify: Restart PostgreSQL
+
+- name: restart
+  ansible.builtin.import_tasks: restart_postgresql.yml
 
 - name: Ensure PostgreSQL service is started and enabled
   ansible.builtin.service:

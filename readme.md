@@ -11,3 +11,8 @@
 ## Architecture
 
 ![Postgresql replication](architecture.png)
+
+
+## Considerable Points
+
+- All password for ansible vaults is "123"
