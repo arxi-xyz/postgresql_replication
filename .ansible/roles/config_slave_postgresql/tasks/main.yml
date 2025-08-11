@@ -48,6 +48,10 @@
         line: 'maintenance_work_mem = 32MB',
       }
     - {
+        regexp: '^#?listen_addresses\s*=',
+        line: "listen_addresses = 'localhost,{{ ansible_host }}'",
+      }
+    - {
         regexp: '^#?effective_cache_size\s*=',
         line: 'effective_cache_size = 384MB',
       }
@@ -59,7 +63,7 @@
         regexp: '^#?primary_slot_name\s*=',
         line: "primary_slot_name = 'standby_slot_{{ ansible_host | replace('.', '_') }}'",
       }
-    - { regexp: '^#?hot_standby\s*=', line: 'hot_standby = on' } # Enable read-only queries
+    - { regexp: '^#?hot_standby\s*=', line: 'hot_standby = on' }
     - { regexp: '^#?wal_level\s*=', line: 'wal_level = replica' }
     - { regexp: '^#?max_wal_size\s*=', line: 'max_wal_size = 256MB' }
     - { regexp: '^#?min_wal_size\s*=', line: 'min_wal_size = 80MB' }
@@ -109,12 +113,13 @@
     mode: '0600'
   become_user: postgres
 
-- name: Configure pg_hba.conf for local monitoring (optional)
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf
-    regexp: '^#?local\s+all\s+postgres'
-    line: 'local all postgres peer'
-    state: present
+- name: Deploy pg_hba.conf configuration
+  ansible.builtin.template:
+    src: templates/pg_hba.conf.j2
+    dest: '/etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf'
+    owner: postgres
+    group: postgres
+    mode: '0640'
     backup: yes
 
 - name: restart

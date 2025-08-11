@@ -1,0 +1,31 @@
+global
+    log /dev/log local0
+    maxconn 4096
+    user haproxy
+    group haproxy
+    daemon
+
+global
+    log /dev/log local0
+    maxconn 4096
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log global
+    mode tcp
+    option tcplog
+    timeout connect 5000
+    timeout client  50000
+    timeout server  50000
+
+frontend db_front
+    bind *:5432
+    default_backend db_backend
+
+backend db_backend
+    balance roundrobin
+{% for host in standby_hosts %}
+server standby{{ loop.index }} {{ host }}:5432 check backup
+{% endfor %}

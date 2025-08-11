@@ -39,7 +39,7 @@
       }
     - {
         regexp: '^#?listen_addresses\s*=',
-        line: "listen_addresses = 'localhost,{{ master_host }}'",
+        line: "listen_addresses = 'localhost,{{ ansible_host }}'",
       }
     - {
         regexp: '^#?checkpoint_completion_target\s*=',
@@ -89,7 +89,7 @@
 - name: restart
   ansible.builtin.import_tasks: restart_postgresql.yml
 
-- name: Install acl package
+- name: Install acl package# Enable read-only queries
   ansible.builtin.package:
     name: acl
     state: present

@@ -15,14 +15,14 @@ Vagrant.configure("2") do |config|
     #     end
     # end
 
-    # config.vm.define "haproxy" do |haproxy|
-    #     haproxy.vm.hostname = "haproxy"
-    #     haproxy.vm.network "private_network", ip: "192.168.56.17", adapter: 2, type: "static", virtualbox__intnet: false
-    #     haproxy.vm.provider "virtualbox" do |vb|
-    #         vb.memory = 2048
-    #         vb.cpus = 2
-    #     end
-    # end
+    config.vm.define "haproxy" do |haproxy|
+        haproxy.vm.hostname = "haproxy"
+        haproxy.vm.network "private_network", ip: "192.168.56.17", adapter: 2, type: "static", virtualbox__intnet: false
+        haproxy.vm.provider "virtualbox" do |vb|
+            vb.memory = 2048
+            vb.cpus = 2
+        end
+    end
 
     # config.vm.define "vue" do |vue|
     #     vue.vm.hostname = "vue"
@@ -35,8 +35,8 @@ Vagrant.configure("2") do |config|
 
     postgresql_slaves = [
         { name: "postgresql_slave_1", hostname: "postgresql.slave1", ip: "192.168.56.11" },
-        { name: "postgresql_slave_2", hostname: "postgresql.slave2", ip: "192.168.56.12" },
-        { name: "postgresql_slave_3", hostname: "postgresql.slave3", ip: "192.168.56.13" }
+        # { name: "postgresql_slave_2", hostname: "postgresql.slave2", ip: "192.168.56.12" },
+        # { name: "postgresql_slave_3", hostname: "postgresql.slave3", ip: "192.168.56.13" }
     ]
 
     laravel_nodes = [

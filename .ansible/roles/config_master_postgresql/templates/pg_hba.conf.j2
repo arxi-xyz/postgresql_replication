@@ -1,6 +1,7 @@
 host    postgres   postgres   192.168.56.1/32   trust
 local   postgres   postgres   trust
 local   all        all        peer
+host    all    all    192.168.56.17/32    md5
 host    {{ database_name }}   {{ app_user }}   192.168.56.1/32   md5
 {% for host in standby_hosts %}
 host    replication   {{ replication_user }}   {{ host }}/32   md5

@@ -1,0 +1,30 @@
+- name: Ensure apt cache is updated
+  ansible.builtin.package:
+    update_cache: yes
+
+- name: Install haproxy package
+  ansible.builtin.package:
+    name: haproxy
+    state: present
+
+- name: haproxy is enabled and started
+  service:
+    name: haproxy
+    enabled: yes
+    state: started
+
+- name: Copy haproxy configuration file
+  template:
+    src: templates/haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+
+- name: Ensure haproxy configuration is valid
+  command: haproxy -c -f /etc/haproxy/haproxy.cfg
+  changed_when: false
+  register: haproxy_check
+  failed_when: haproxy_check.rc != 0
+
+- name: Restart HAProxy
+  service:
+    name: haproxy
+    state: restarted
