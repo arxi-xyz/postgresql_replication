@@ -1,0 +1,115 @@
+- name: update apt
+  ansible.builtin.package:
+    update_cache: yes
+
+- name: install php-fpm
+  ansible.builtin.package:
+    name:
+      - php-fpm
+      - supervisor
+      - git
+    state: present
+
+- name: change configuration
+  ansible.builtin.lineinfile:
+    path: /etc/php/8.2/fpm/pool.d/www.conf
+    regexp: '{{ item.regexp }}'
+    line: '{{ item.line }}'
+    state: present
+    backup: yes
+  loop:
+    - { regexp: '^;?listen\s*=', line: 'listen = 0.0.0.0:9000' }
+
+- name: Install php extensions
+  ansible.builtin.package:
+    name:
+      - php-mbstring
+      - php-xml
+      - php-mysql
+      - php-curl
+      - php-zip
+      - php-fileinfo
+      - php-pdo
+    state: present
+  become: yes
+
+- name: restart php-fpm
+  ansible.builtin.systemd:
+    name: php8.2-fpm
+    state: restarted
+
+- name: download composer installer
+  ansible.builtin.uri:
+    url: https://getcomposer.org/installer
+    dest: /tmp/composer-setup.php
+    return_content: true
+
+- name: download composer signature
+  ansible.builtin.uri:
+    url: https://composer.github.io/installer.sig
+    return_content: true
+  register: composer_signature
+
+- name: Set HASH variable
+  ansible.builtin.set_fact:
+    HASH: '{{ composer_signature.content | trim }}'
+
+- name: check the safty of installer
+  ansible.builtin.shell: |
+    php -r "if (hash_file('SHA384', '/tmp/composer-setup.php') === '$HASH') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
+  args:
+    executable: /bin/bash
+
+- name: install composer
+  ansible.builtin.shell: |
+    php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+  args:
+    executable: /bin/bash
+
+- name: generate SSH key
+  ansible.builtin.openssh_keypair:
+    path: /home/{{ ansible_user }}/.ssh/id_ed25519
+    type: ed25519
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+    mode: '0600'
+  register: ssh_key
+
+- name: Read public key from remote VM
+  ansible.builtin.slurp:
+    src: '/home/{{ ansible_user }}/.ssh/id_ed25519.pub'
+  register: remote_pubkey
+
+- name: Debug SSH public key
+  ansible.builtin.debug:
+    msg: '{{ remote_pubkey.content | b64decode }}'
+
+- name: Add SSH public key to GitHub
+  ansible.builtin.uri:
+    url: 'https://api.github.com/user/keys'
+    method: POST
+    headers:
+      Authorization: 'token {{ github_token }}'
+      Content-Type: 'application/json'
+      Accept: 'application/vnd.github.v3+json'
+    body_format: json
+    body:
+      title: 'Ansible Deployment Key'
+      key: '{{ remote_pubkey.content | b64decode }}'
+    status_code: 201
+
+- name: clone project
+  ansible.builtin.git:
+    repo: git@github.com:arxi-xyz/postgres_replication_laravel.git
+    dest: /home/vm/project
+    key_file: /home/vm/.ssh/id_ed25519
+    accept_hostkey: yes
+  become: yes
+  become_user: vm
+
+- name: install laravel dependencies
+  ansible.builtin.shell: |
+    composer install --no-interaction --prefer-dist --optimize-autoloader
+  args:
+    chdir: /home/vm/project
+    executable: /bin/bash

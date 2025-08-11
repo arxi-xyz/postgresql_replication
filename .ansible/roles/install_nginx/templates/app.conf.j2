@@ -1,0 +1,47 @@
+upstream php_backend { 
+    {% for host in backend_servers %}
+    server {{ host }}:9000;
+    {% endfor %}
+}
+
+server {
+    listen 80;
+    server_name {{ ansible_host }};  
+
+    # Handle all requests as API calls
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP files handling with FastCGI
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass php_backend;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $fastcgi_script_name;  
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+
+        # FastCGI optimizations
+        fastcgi_buffer_size 32k;
+        fastcgi_buffers 8 16k;
+        fastcgi_busy_buffers_size 32k;
+        fastcgi_connect_timeout 60s;
+        fastcgi_read_timeout 120s;
+        fastcgi_send_timeout 60s;
+    }
+
+    # Deny access to sensitive files
+    location ~ /\.ht {
+        deny all;
+    }
+
+    # Deny access to non-PHP files to avoid unnecessary requests
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        return 404;  # Or redirect to an error endpoint if needed
+    }
+
+    # Error logging
+    error_log /var/log/nginx/error.log;
+    access_log /var/log/nginx/access.log;
+}

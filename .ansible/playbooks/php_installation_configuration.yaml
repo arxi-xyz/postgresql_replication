@@ -1,0 +1,7 @@
+---
+- hosts: laravel_nodes
+  become: yes
+  vars_files:
+    - '../vault/main.yml'
+  roles:
+    - install_php

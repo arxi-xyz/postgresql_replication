@@ -26,6 +26,6 @@ frontend db_front
 
 backend db_backend
     balance roundrobin
-{% for host in standby_hosts %}
-server standby{{ loop.index }} {{ host }}:5432 check backup
-{% endfor %}
+    {% for host in standby_hosts %}
+    server standby{{ loop.index }} {{ host }}:5432 check backup
+    {% endfor %}
