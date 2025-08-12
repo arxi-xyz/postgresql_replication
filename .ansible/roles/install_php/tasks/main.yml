@@ -2,40 +2,51 @@
   ansible.builtin.package:
     update_cache: yes
 
+- name: install repository requirements
+  ansible.builtin.package:
+    name:
+      - apt-transport-https
+    state: present
+
+- name: Download PHP GPG key
+  ansible.builtin.get_url:
+    url: https://packages.sury.org/php/apt.gpg
+    dest: /usr/share/keyrings/deb.sury.org-php.gpg
+    mode: '0644'
+
+- name: Add Sury PHP repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/php.list
+    content: "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ {{ ansible_lsb.codename }} main\n"
+    mode: '0644'
+
+- name: update apt
+  ansible.builtin.package:
+    update_cache: yes
+
 - name: install php-fpm
   ansible.builtin.package:
     name:
-      - php-fpm
+      - 'php{{ php_version }}-fpm'
       - supervisor
       - git
     state: present
 
-- name: change configuration
-  ansible.builtin.lineinfile:
-    path: /etc/php/8.2/fpm/pool.d/www.conf
-    regexp: '{{ item.regexp }}'
-    line: '{{ item.line }}'
-    state: present
-    backup: yes
-  loop:
-    - { regexp: '^;?listen\s*=', line: 'listen = 0.0.0.0:9000' }
-
 - name: Install php extensions
   ansible.builtin.package:
     name:
-      - php-mbstring
-      - php-xml
-      - php-mysql
-      - php-curl
-      - php-zip
-      - php-fileinfo
-      - php-pdo
+      - php{{ php_version }}-mbstring
+      - php{{ php_version }}-xml
+      - php{{ php_version }}-pgsql
+      - php{{ php_version }}-curl
+      - php{{ php_version }}-zip
+      - php{{ php_version }}-xml
     state: present
   become: yes
 
 - name: restart php-fpm
   ansible.builtin.systemd:
-    name: php8.2-fpm
+    name: 'php{{ php_version }}-fpm'
     state: restarted
 
 - name: download composer installer
@@ -101,15 +112,19 @@
 - name: clone project
   ansible.builtin.git:
     repo: git@github.com:arxi-xyz/postgres_replication_laravel.git
-    dest: /home/vm/project
+    dest: '{{ project_path }}'
     key_file: /home/vm/.ssh/id_ed25519
     accept_hostkey: yes
   become: yes
   become_user: vm
 
-- name: install laravel dependencies
-  ansible.builtin.shell: |
-    composer install --no-interaction --prefer-dist --optimize-autoloader
-  args:
-    chdir: /home/vm/project
-    executable: /bin/bash
+- name: Ensure correct ownership for Laravel storage and cache directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    owner: www-data
+    group: www-data
+    recurse: yes
+    state: directory
+  loop:
+    - "{{ project_path }}/storage"
+    - "{{ project_path }}/bootstrap/cache"

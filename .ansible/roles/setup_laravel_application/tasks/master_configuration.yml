@@ -1,0 +1,7 @@
+- name: clean up database
+  ansible.builtin.shell: |
+    php {{ project_path }}/artisan db:wipe
+
+- name: migrate database
+  ansible.builtin.shell: |
+    php {{ project_path }}/artisan migrate --seed

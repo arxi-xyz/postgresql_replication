@@ -1,0 +1,54 @@
+---
+- name: change configuration
+  ansible.builtin.lineinfile:
+    path: /etc/php/{{ php_version }}/fpm/pool.d/www.conf
+    regexp: '{{ item.regexp }}'
+    line: '{{ item.line }}'
+    state: present
+    backup: yes
+  loop:
+    - { regexp: '^;?listen\s*=', line: 'listen = 127.0.0.1:9000' }
+
+- name: install laravel dependencies
+  ansible.builtin.shell: |
+    composer install --no-interaction --prefer-dist --optimize-autoloader
+  args:
+    chdir: /home/vm/project
+    executable: /bin/bash
+
+- name: create .env
+  ansible.builtin.copy:
+    src: '{{ project_path }}/.env.example'
+    dest: '{{ project_path }}/.env'
+    remote_src: true
+
+- name: config .env file
+  ansible.builtin.lineinfile:
+    path: '{{ project_path }}/.env'
+    regexp: '{{ item.regexp }}'
+    line: '{{ item.line }}'
+    state: present
+    backup: no
+  loop:
+    # database config
+    - { regexp: '^DB_CONNECTION=', line: 'DB_CONNECTION=pgsql' }
+    - { regexp: '^DB_READ_HOST=', line: 'DB_READ_HOST=192.168.56.17' }
+    - { regexp: '^DB_READ_PORT=', line: 'DB_READ_PORT=5432' }
+    - { regexp: '^DB_WRITE_HOST=', line: 'DB_WRITE_HOST=192.168.56.10' }
+    - { regexp: '^DB_WRITE_PORT=', line: 'DB_WRITE_PORT=5432' }
+
+    - { regexp: '^DB_DATABASE=', line: 'DB_DATABASE=replication_db' }
+    - { regexp: '^DB_USERNAME=', line: 'DB_USERNAME=app_user' }
+    - { regexp: '^DB_PASSWORD=', line: 'DB_PASSWORD=password' }
+
+- name: laravel master configuration
+  ansible.builtin.import_tasks: master_configuration.yml
+  when: master_configuration
+
+- name: clean up cache
+  ansible.builtin.shell: |
+    php {{ project_path }}/artisan optimize:clear
+
+- name: cache the configs
+  ansible.builtin.shell: |
+    php {{ project_path }}/artisan optimize

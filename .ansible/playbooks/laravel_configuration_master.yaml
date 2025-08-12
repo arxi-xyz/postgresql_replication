@@ -1,0 +1,12 @@
+---
+- hosts: laravel_master
+  become: yes
+  vars_files:
+    - '../vault/main.yml'
+  roles:
+    - install_php
+    - role: setup_laravel_application
+      master_configuration: true
+    - install_nginx
+    - role: setup_nginx
+      configuration_type: laravel_nginx

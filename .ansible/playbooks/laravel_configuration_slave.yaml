@@ -1,0 +1,10 @@
+---
+- hosts: laravel_slave
+  become: yes
+  vars_files:
+    - '../vault/main.yml'
+  roles:
+    - install_php
+    - setup_laravel_application
+    - install_nginx
+    - setup_nginx

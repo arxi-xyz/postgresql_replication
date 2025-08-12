@@ -32,11 +32,15 @@ all:
               ansible_host: 192.168.56.17
               ansible_user: vm
 
-    laravel_nodes:
-      hosts:
-        laravel_node_1:
-          ansible_host: 192.168.56.14
-          ansible_user: vm
-        laravel_node_2:
-          ansible_host: 192.168.56.15
-          ansible_user: vm
+    laravel:
+      children:
+        laravel_master:
+          hosts:
+            laravel_node_1:
+              ansible_host: 192.168.56.14
+              ansible_user: vm
+        laravel_slave:
+          hosts:
+            laravel_node_2:
+              ansible_host: 192.168.56.15
+              ansible_user: vm

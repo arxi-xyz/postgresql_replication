@@ -1,0 +1,2 @@
+php_version: '8.3'
+project_path: '/home/{{ ansible_user }}/project'
