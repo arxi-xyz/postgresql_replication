@@ -1,0 +1,10 @@
+---
+- hosts: nginx
+  become: yes
+  vars_files:
+    - '../vault/main.yml'
+  vars:
+    node_version: '18'
+    project_path: '/home/{{ ansible_user }}/frontend'
+  roles:
+    - setup_frontend

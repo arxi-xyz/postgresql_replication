@@ -51,7 +51,8 @@
 
 - name: download composer installer
   ansible.builtin.uri:
-    url: https://getcomposer.org/installer
+    url: https://getcomposer.org/installer  vars:
+    node_version: "20" 
     dest: /tmp/composer-setup.php
     return_content: true
 
@@ -111,7 +112,7 @@
 
 - name: clone project
   ansible.builtin.git:
-    repo: git@github.com:arxi-xyz/postgres_replication_laravel.git
+    repo: git@github.com:ar-sharif/laravel_postgresql_replication.git
     dest: '{{ project_path }}'
     key_file: /home/vm/.ssh/id_ed25519
     accept_hostkey: yes
@@ -126,5 +127,5 @@
     recurse: yes
     state: directory
   loop:
-    - "{{ project_path }}/storage"
-    - "{{ project_path }}/bootstrap/cache"
+    - '{{ project_path }}/storage'
+    - '{{ project_path }}/bootstrap/cache'

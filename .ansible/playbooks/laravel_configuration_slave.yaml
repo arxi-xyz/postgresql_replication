@@ -7,4 +7,5 @@
     - install_php
     - setup_laravel_application
     - install_nginx
-    - setup_nginx
+    - role: setup_nginx
+      configuration_type: laravel_nginx

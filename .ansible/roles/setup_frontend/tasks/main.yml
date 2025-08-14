@@ -1,0 +1,106 @@
+- name: Install deps
+  apt:
+    name: '{{ item }}'
+    state: present
+    update_cache: yes
+  loop:
+    - curl
+    - wget
+    - build-essential
+    - git
+
+- name: download installer
+  shell: |
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+  args:
+    creates: /home/{{ ansible_user }}/.nvm
+  become: false
+
+- name: Ensure NVM loads in every shell
+  lineinfile:
+    path: /home/{{ ansible_user }}/.bashrc
+    line: '{{ item }}'
+    state: present
+  loop:
+    - 'export NVM_DIR="$HOME/.nvm"'
+    - '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+    - '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+  become: false
+
+- name: Verify NVM installation
+  stat:
+    path: /home/{{ ansible_user }}/.nvm/nvm.sh
+  register: nvm_installed
+  failed_when: not nvm_installed.stat.exists
+  become: false
+
+- name: install node js
+  shell: |
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    nvm install {{ node_version | default('20') }}
+    nvm alias default {{ node_version | default('20') }}
+  args:
+    executable: /bin/bash
+    creates: /home/{{ ansible_user }}/.nvm/versions/node/v{{ node_version | default('20') }}
+  become: false
+
+# - name: generate SSH key
+#   ansible.builtin.openssh_keypair:
+#     path: /home/{{ ansible_user }}/.ssh/id_ed25519
+#     type: ed25519
+#     owner: '{{ ansible_user }}'
+#     group: '{{ ansible_user }}'
+#     mode: '0600'
+#   register: ssh_key
+
+# - name: Read public key from remote VM
+#   ansible.builtin.slurp:
+#     src: '/home/{{ ansible_user }}/.ssh/id_ed25519.pub'
+#   register: remote_pubkey
+
+# - name: Add SSH public key to GitHub
+#   ansible.builtin.uri:
+#     url: 'https://api.github.com/user/keys'
+#     method: POST
+#     headers:
+#       Authorization: 'token {{ github_token }}'
+#       Content-Type: 'application/json'
+#       Accept: 'application/vnd.github.v3+json'
+#     body_format: json
+#     body:
+#       title: 'postgresql replication frontend key'
+#       key: '{{ remote_pubkey.content | b64decode }}'
+#     status_code: 201
+
+- name: clone project
+  ansible.builtin.git:
+    repo: git@github.com:ar-sharif/react_postgresql_replication.git
+    dest: '{{ project_path }}'
+    key_file: /home/vm/.ssh/id_ed25519
+    accept_hostkey: yes
+  become: yes
+  become_user: vm
+
+- name: create new env file with content
+  ansible.builtin.copy:
+    dest: '{{ project_path }}/.env'
+    content: |
+      NEXT_PUBLIC_API_DOMAIN=http://{{ ansible_host }}:80/
+
+- name: build project
+  shell: |
+    export NVM_DIR="/home/{{ ansible_user }}/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    export PATH="$NVM_DIR/versions/node/v{{ node_version | default('20') }}/bin:$PATH"
+    node --version
+    npm --version
+    cd {{ project_path | default('/home/' + ansible_user + '/frontend') }}
+    npm install
+    npm run build
+  args:
+    executable: /bin/bash
+    creates: "{{ project_path | default('/home/' + ansible_user + '/frontend') }}/dist"
+  become: false
+  register: build_result
+  failed_when: build_result.rc != 0

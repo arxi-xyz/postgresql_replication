@@ -6,14 +6,14 @@ Vagrant.configure("2") do |config|
         vb.cpus = 1
     end
 
-    # config.vm.define "nginx" do |nginx|
-    #     nginx.vm.hostname = "nginx"
-    #     nginx.vm.network "private_network", ip: "192.168.56.18", adapter: 2, type: "static", virtualbox__intnet: false
-    #     nginx.vm.provider "virtualbox" do |vb|
-    #         vb.memory = 2048
-    #         vb.cpus = 2
-    #     end
-    # end
+    config.vm.define "nginx" do |nginx|
+        nginx.vm.hostname = "nginx"
+        nginx.vm.network "private_network", ip: "192.168.56.18", adapter: 2, type: "static", virtualbox__intnet: false
+        nginx.vm.provider "virtualbox" do |vb|
+            vb.memory = 2048
+            vb.cpus = 2
+        end
+    end
 
     # config.vm.define "haproxy" do |haproxy|
     #     haproxy.vm.hostname = "haproxy"
@@ -64,16 +64,16 @@ Vagrant.configure("2") do |config|
     #     end
     # end
 
-    laravel_nodes.each do |node|
-        config.vm.define node[:name] do |slave|
-            slave.vm.hostname = node[:hostname]
-            slave.vm.network "private_network", ip: node[:ip], adapter: 2, type: "static", virtualbox__intnet: false
-            slave.vm.provider "virtualbox" do |vb|  
-                vb.memory = 2048
-                vb.cpus = 2
-            end
-        end
-    end
+    # laravel_nodes.each do |node|
+    #     config.vm.define node[:name] do |slave|
+    #         slave.vm.hostname = node[:hostname]
+    #         slave.vm.network "private_network", ip: node[:ip], adapter: 2, type: "static", virtualbox__intnet: false
+    #         slave.vm.provider "virtualbox" do |vb|  
+    #             vb.memory = 2048
+    #             vb.cpus = 2
+    #         end
+    #     end
+    # end
 
     config.vm.provision "ansible" do |ansible|
         ansible.playbook = ".ansible/playbooks/init_setup.yml"

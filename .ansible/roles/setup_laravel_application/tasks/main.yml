@@ -43,7 +43,7 @@
 
 - name: laravel master configuration
   ansible.builtin.import_tasks: master_configuration.yml
-  when: master_configuration
+  when: master_configuration | default(false)
 
 - name: clean up cache
   ansible.builtin.shell: |

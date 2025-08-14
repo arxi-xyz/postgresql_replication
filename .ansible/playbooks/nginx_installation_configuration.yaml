@@ -3,3 +3,5 @@
   become: yes
   roles:
     - install_nginx
+    - role: setup_nginx
+      configuration_type: reverse_proxy_nginx

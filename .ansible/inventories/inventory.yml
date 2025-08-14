@@ -6,12 +6,6 @@ all:
           ansible_host: 192.168.56.18
           ansible_user: vm
 
-    vue:
-      hosts:
-        vue:
-          ansible_host: 192.168.56.16
-          ansible_user: vm
-
     database:
       children:
         postgresql_master:
