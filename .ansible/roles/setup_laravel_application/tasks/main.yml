@@ -9,6 +9,11 @@
   loop:
     - { regexp: '^;?listen\s*=', line: 'listen = 127.0.0.1:9000' }
 
+- name: restart php-fpm
+  ansible.builtin.systemd:
+    name: 'php{{ php_version }}-fpm'
+    state: restarted
+
 - name: install laravel dependencies
   ansible.builtin.shell: |
     composer install --no-interaction --prefer-dist --optimize-autoloader
