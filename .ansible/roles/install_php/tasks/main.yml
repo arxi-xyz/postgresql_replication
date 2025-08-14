@@ -51,8 +51,7 @@
 
 - name: download composer installer
   ansible.builtin.uri:
-    url: https://getcomposer.org/installer  vars:
-    node_version: "20" 
+    url: https://getcomposer.org/installer
     dest: /tmp/composer-setup.php
     return_content: true
 

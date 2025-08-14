@@ -48,7 +48,3 @@
 - name: clean up cache
   ansible.builtin.shell: |
     php {{ project_path }}/artisan optimize:clear
-
-- name: cache the configs
-  ansible.builtin.shell: |
-    php {{ project_path }}/artisan optimize

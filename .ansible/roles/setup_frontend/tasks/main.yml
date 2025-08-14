@@ -45,33 +45,33 @@
     creates: /home/{{ ansible_user }}/.nvm/versions/node/v{{ node_version | default('20') }}
   become: false
 
-# - name: generate SSH key
-#   ansible.builtin.openssh_keypair:
-#     path: /home/{{ ansible_user }}/.ssh/id_ed25519
-#     type: ed25519
-#     owner: '{{ ansible_user }}'
-#     group: '{{ ansible_user }}'
-#     mode: '0600'
-#   register: ssh_key
+- name: generate SSH key
+  ansible.builtin.openssh_keypair:
+    path: /home/{{ ansible_user }}/.ssh/id_ed25519
+    type: ed25519
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+    mode: '0600'
+  register: ssh_key
 
-# - name: Read public key from remote VM
-#   ansible.builtin.slurp:
-#     src: '/home/{{ ansible_user }}/.ssh/id_ed25519.pub'
-#   register: remote_pubkey
+- name: Read public key from remote VM
+  ansible.builtin.slurp:
+    src: '/home/{{ ansible_user }}/.ssh/id_ed25519.pub'
+  register: remote_pubkey
 
-# - name: Add SSH public key to GitHub
-#   ansible.builtin.uri:
-#     url: 'https://api.github.com/user/keys'
-#     method: POST
-#     headers:
-#       Authorization: 'token {{ github_token }}'
-#       Content-Type: 'application/json'
-#       Accept: 'application/vnd.github.v3+json'
-#     body_format: json
-#     body:
-#       title: 'postgresql replication frontend key'
-#       key: '{{ remote_pubkey.content | b64decode }}'
-#     status_code: 201
+- name: Add SSH public key to GitHub
+  ansible.builtin.uri:
+    url: 'https://api.github.com/user/keys'
+    method: POST
+    headers:
+      Authorization: 'token {{ github_token }}'
+      Content-Type: 'application/json'
+      Accept: 'application/vnd.github.v3+json'
+    body_format: json
+    body:
+      title: 'postgresql replication frontend key'
+      key: '{{ remote_pubkey.content | b64decode }}'
+    status_code: 201
 
 - name: clone project
   ansible.builtin.git:
