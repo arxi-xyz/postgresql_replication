@@ -93,6 +93,23 @@ Before starting, ensure the following requirements are met:
 2. **Reference Vault in Playbooks**:
    - Update your playbooks to reference the vaulted variables as needed.
 
+### Vagrant Setup
+
+1. **Initialize Virtual Machines**:
+   - Ensure you have a `Vagrantfile` in the project root that defines the VirtualBox VMs for the PostgreSQL master, slave, HAProxy, and application nodes.
+   - Run the following command to start and provision the VMs:
+     ```bash
+     vagrant up
+     ```
+   - This will create and configure the VMs according to the `Vagrantfile`. Ensure VirtualBox and Vagrant are installed and properly configured.
+
+2. **Verify VM Status**:
+   - Check that all VMs are running:
+     ```bash
+     vagrant status
+     ```
+   - If any VMs fail to start, check the VirtualBox logs or Vagrant output for errors.
+
 ### Playbook Execution Order
 
 Run the Ansible playbooks in the following order to ensure proper setup and configuration. Use the inventory file located at `.ansible/inventories/inventory.yml`.
